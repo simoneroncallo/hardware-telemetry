@@ -2,15 +2,15 @@
 ###############################################################################
 # Script Name: telemetry.sh
 # Description:
-# 	This script monitors hardware data, including CPU load, temperature, 
-#  	RAM usage, and optionally GPU usage. Data temporarily stored and 
+# 	This script monitors hardware data, including CPU load, temperature,
+#  	RAM usage, and optionally GPU usage. Data temporarily stored and
 #	privately shared via a Telegram bot running in Docker (Python).
 #
 # Usage:
 # 	./telemetry.sh [OPTIONS]
 #
 # Options:
-# 	-t, --timestep <seconds> Set the sampling period (default: 30)
+# 	-t, --timestep <seconds> Set the timestep (default: 30)
 # 	--nogpu                  Disable GPU monitoring
 #
 # Dependencies:
@@ -24,7 +24,7 @@
 #	- Telegram API in `secrets.json`
 #		Template: {
 #				"chatID": "-12345",
-#				"token": "-12345:ABCDE"
+#				"token": "12345:ABCDE"
 #			  }
 #
 # Author: Simone Roncallo
