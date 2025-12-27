@@ -28,7 +28,7 @@
 #			  }
 #
 # Author: Simone Roncallo
-# Date: [2025-12-26]
+# Date:   2025-12-26
 ###############################################################################
 
 set -e
@@ -68,10 +68,11 @@ function sharedata() {
 	# Send data using Telegram API (running in Docker)
 	printf "\r\033[KSample #$1 -> Completed\n"
 	echo "Starting Docker..."
-	sudo docker run --rm --cap-drop=ALL --security-opt=no-new-privileges \
+	sudo docker run --rm --cap-drop=ALL --security-opt=no-new-privileges:true \
+	--memory=1024m --cpus=4 \
 	--user=puppet -v $2:/home/puppet/work/data:ro \
 	-v ./secrets.json:/home/puppet/work/secrets.json:ro \
-	telegram-bot # Run Docker
+	telegram-bot:latest # Run Docker
 	rm -rf $2 # Remove temporary data
 	echo "Completed"
 }
