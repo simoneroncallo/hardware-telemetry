@@ -1,5 +1,5 @@
 # Hardware telemetry
-A collection of Bash scripts that monitor hardware metrics, including CPU load, temperature, RAM/SWAP usage, and optionally, NVIDIA GPU usage (using nvidia-smi). Data is temporarily stored and shared privately through a Dockerized Telegram API call written in Python.
+A collection of scripts that monitor hardware metrics, including CPU load, temperature, RAM/SWAP usage, and optionally, NVIDIA GPU usage (using nvidia-smi). Data is temporarily stored and shared privately through a Dockerized Telegram API call written in Python.
 
 ## Configuration
 Require two configuration files. The file `.config` contains a single `int` specifying the thermal zone where CPU temperature is collected. For x86 architectures, this information can be retrieved by inspecting which sensor has type `x86_pkg_temp` after running
@@ -30,6 +30,6 @@ The repository has the following structure
 ```bash
 build.sh            # Builds the Docker image
 requirements.txt    # Python dependencies
-data2api.py	    # Data analysis and Telegram API call (containerized)
+data2api.py         # Data analysis and Telegram API call (containerized)
 telemetry.sh        # Metrics collection and container call
 ```
