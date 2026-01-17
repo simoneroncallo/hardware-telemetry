@@ -1,31 +1,30 @@
 #!/bin/bash
 ###############################################################################
-# Script Name: telemetry.sh
+# Name: telemetry.sh
 # Description:
-# 	This script monitors hardware data, including CPU load, temperature,
-#  	RAM usage, and optionally GPU usage. Data temporarily stored and
-#	privately shared via a Telegram bot running in Docker (Python).
+# 	This script monitors hardware metrics, including CPU load, temperature,
+#  	RAM, and SWAP (ZRAM) usage, with optional support for NVIDIA GPUs 
+#	usage. Data is temporarily stored and shared privately through a 
+#	Dockerized Telegram API call written in Python.
 #
-# Usage:
-# 	./telemetry.sh [OPTIONS]
-#
-# Options:
-# 	-t, --timestep <seconds> Set the timestep (default: 30)
-# 	--nogpu                  Disable GPU monitoring
+# Usage: 
+#	./telemetry.sh [OPTIONS]
+# 	-t, --timestep <seconds>	Set the timestep (default: 30 seconds)
+# 	--nogpu                 	Disable GPU monitoring
 #
 # Dependencies:
-#	- bash, awk, grep
-# 	- nvidia-smi (if GPU monitoring enabled)
-#	- Docker image built with ./build.sh
+#	bash, grep, awk
+# 	nvidia-smi (for NVIDIA GPUs usage)
+#	Docker (rootless) or Podman
 #
 # Configuration:
-# 	- Hardware specs in `.config`:
-# 		Line 1: CPU thermal zone number
-#	- Telegram API in `secrets.json`
-#		Template: {
-#				"chatID": "-12345",
-#				"token": "12345:ABCDE"
-#			  }
+# 	.config 	Hardware specifications
+# 			Line 1: CPU thermal zone index number
+#	secrets.json 	Telegram API and Chat ID
+#			Template: {	
+#				    "chatID": "-12345",
+#				    "token": "12345:ABCDE" 	   
+#				  }
 #
 # Author: Simone Roncallo
 # Date:   2025-12-26
@@ -33,7 +32,8 @@
 
 set -e
 
-OPTS=$(getopt -o t: --long timestep:,nogpu -n 'telemetry.sh' -- "$@") # Get options
+# Get options
+OPTS=$(getopt -o t: --long timestep:,nogpu -n 'telemetry.sh' -- "$@") 
 if [ $? -ne 0 ]; then
   echo "Error"
   exit 1
@@ -66,10 +66,10 @@ done
 
 function sharedata() {
 	# Send data using Telegram API (running in Docker)
-	printf "\r\033[KSample #$1 -> Completed\n"
-	echo "Starting Docker..."
+	printf "\r\033[KSample #$1 -> Interrupt\n"
+	echo "Opening channel..."
 	docker run --rm --cap-drop=ALL --security-opt=no-new-privileges:true \
-	--memory=1024m --cpus=4 \
+	--memory=1024m --cpus=2 \
 	--user=puppet -v $2:/home/puppet/work/data:ro \
 	-v ./secrets.json:/home/puppet/work/secrets.json:ro \
 	telegram-bot:latest # Run Docker
@@ -84,6 +84,7 @@ TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 TMP="./${TIMESTAMP}.tmp" # Output temporary directory
 mkdir -p ./$TMP
 > ./$TMP/memFree.txt # Free RAM (kB)
+> ./$TMP/swpFree.txt # Free SWAP/ZRAM (kB)
 > ./$TMP/cpuLoad.txt # Average CPU load (1 minute)
 > ./$TMP/cpuTemp.txt # Temperature (mC)
 if $readgpu; then
@@ -92,19 +93,28 @@ if $readgpu; then
 fi
 
 counter=1
-hostnamectl | grep "Static hostname:" | awk '{print $3}' > ./$TMP/hostName.txt # Device
-hostnamectl | grep "Operating System:" | awk '{print $3, $4, $5}' > ./$TMP/distroName.txt # Distribution
+
+pattern='{print $3, $4, $5}'
+hostnamectl | grep "Operating System:" | awk "$pattern" > ./$TMP/distroName.txt
+hostnamectl | grep "Static hostname:" | awk '{print $3}' > ./$TMP/hostName.txt
+	
 nproc > ./$TMP/numCores.txt
-grep MemTotal: /proc/meminfo | awk '{print $2}' > ./$TMP/memTotal.txt # Total RAM (kB)
-echo "Getting data..."
+grep MemTotal: /proc/meminfo | awk '{print $2}' > ./$TMP/memTotal.txt
+grep SwapTotal: /proc/meminfo | awk '{print $2}' > ./$TMP/swpTotal.txt
+
 while true; do
 	printf "\r\033[KSample #${counter}"
+	
 	grep MemFree: /proc/meminfo | awk '{print $2}' >> ./$TMP/memFree.txt
+	grep SwapFree: /proc/meminfo | awk '{print $2}' >> ./$TMP/swpFree.txt
 	cat /proc/loadavg | awk '{print $1}' >> ./$TMP/cpuLoad.txt
 	cat /sys/class/thermal/thermal_zone${tzone}/temp >> ./$TMP/cpuTemp.txt
-	if $readgpu; then
-		nvidia-smi | grep W | awk '{print substr($9, 1, length($9) - 3)}' >> ./$TMP/gpuUsed.txt
-		nvidia-smi | grep W | awk '{print substr($11, 1, length($11) - 3)}' >> ./$TMP/gpuTotal.txt
+	if $readgpu; then # Read NVIDIA GPU metrics
+		pattern='{print substr($9, 1, length($9) - 3)}'
+		nvidia-smi | grep W | awk "$pattern" >> ./$TMP/gpuUsed.txt
+		
+		pattern='{print substr($11, 1, length($11) - 3)}'
+		nvidia-smi | grep W | awk "$pattern" >> ./$TMP/gpuTotal.txt
 	fi
 
 	counter=$(($counter + 1))

@@ -1,12 +1,12 @@
 # Hardware telemetry
-A collection of Bash and Python scripts that monitor hardware data, including CPU load, temperature, RAM usage, and optionally, NVIDIA GPU usage (using nvidia-smi). Data are privately shared via a Telegram bot running in Docker.
+A collection of Bash scripts that monitor hardware metrics, including CPU load, temperature, RAM/SWAP usage, and optionally, NVIDIA GPU usage (using nvidia-smi). Data is temporarily stored and shared privately through a Dockerized Telegram API call written in Python.
 
 ## Configuration
-The scripts require two configuration files. The file `.config` contains a single `int` specifying the thermal zone where CPU temperature is collected. For x86 architectures, this information can be retrieved by inspecting which sensor has type `x86_pkg_temp` in
+Require two configuration files. The file `.config` contains a single `int` specifying the thermal zone where CPU temperature is collected. For x86 architectures, this information can be retrieved by inspecting which sensor has type `x86_pkg_temp` after running
 ```bash
 cat /sys/class/thermal/thermal_zone*/type
 ```
-and save its value in `.config`. The file `secrets.json` contains the Telegram ChatID and Bot API used by `send.py`, with template
+and save its value in `.config`. The file `secrets.json` contains the Telegram ChatID and Bot API used by `data2api.py`, with template
 ```json
 {
     "chatID": "-12345",
@@ -28,8 +28,8 @@ The telemetry script (Bash) can natively run on the system. The Telegram communi
 ## Structure
 The repository has the following structure
 ```bash
-build.sh            # Installation
-requirements.txt    # Dependencies
-share.py            # Telegram script (written in Python, baked with Docker)
-telemetry.sh        # Main script
+build.sh            # Builds the Docker image
+requirements.txt    # Python dependencies
+data2api.py	    # Data analysis and Telegram API call (containerized)
+telemetry.sh        # Metrics collection and container call
 ```

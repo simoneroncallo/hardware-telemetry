@@ -5,11 +5,11 @@ USER root
 RUN adduser -D puppet
 WORKDIR /home/puppet/work
 COPY requirements.txt .
-COPY share_data.py .
+COPY data2api.py .
 
 # Install
 RUN pip install --no-cache-dir -r requirements.txt \
 	&& chown -R puppet:puppet /home/puppet
 # Run
 USER puppet
-CMD ["python", "share_data.py", "--config", "secrets.json"]
+CMD ["python", "data2api.py", "--config", "secrets.json"]

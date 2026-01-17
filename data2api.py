@@ -6,6 +6,7 @@ import telegram
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from typing import Tuple
 
 def get_data() -> Tuple[str, str, dict, dict]:
@@ -24,6 +25,7 @@ def get_data() -> Tuple[str, str, dict, dict]:
             Dictionary containing hardware data with keys:
             - 'cpu' (float): CPU load 
             - 'ram' (float): RAM usage
+            - 'swap' (float): SWAP/ZRAM usage
             - 'gpu' (float): GPU usage (optional, obtained from nvidia-smi)
             - 'temp' (float): Temperature (Zone chosen in `.config`)
             - 'size' (int): Number of datapoints
@@ -35,16 +37,19 @@ def get_data() -> Tuple[str, str, dict, dict]:
     cpu_temp = np.loadtxt("./data/cpuTemp.txt") # Temperature (mC)
     mem_free = np.loadtxt("./data/memFree.txt") # Free RAM (kB)
     mem_total = np.loadtxt("./data/memTotal.txt") # Total RAM (kB)
-    distro_name = np.loadtxt("./data/distroName.txt", dtype=str) # Total RAM (kB)
+    swp_free = np.loadtxt("./data/swpFree.txt") # Free SWAP/ZRAM (kB)
+    swp_total = np.loadtxt("./data/swpTotal.txt") # Total SWAP/ZRAM (kB)
+    distro_name = np.loadtxt("./data/distroName.txt", dtype=str) # Name
     host_name = np.loadtxt("./data/hostName.txt", dtype=str)
         
     history, avg = {}, {}
     history["cpu"] = cpu_load/num_cores*100
     history["ram"] = (1-mem_free/mem_total)*100
+    history["swap"] = (1-swp_free/swp_total)*100
     history["temp"] = cpu_temp/1000
     history["size"] = cpu_load.size
     
-    for key in ["ram", "cpu", "temp"]:
+    for key in ["cpu", "ram", "swap", "temp"]:
         avg[key] = np.mean(history[key]) # Average
         
     try: # Get GPU data if available
@@ -59,7 +64,7 @@ def get_data() -> Tuple[str, str, dict, dict]:
     
 def plot_data(data: dict, num_bins: int = 40) -> str:
     """
-    Generate histograms for CPU, RAM, GPU, and temperature
+    Generate histograms for CPU, RAM (SWAP), GPU, and temperature
     data. Save the plot as an image.
     
     Parameters
@@ -83,21 +88,38 @@ def plot_data(data: dict, num_bins: int = 40) -> str:
             patch.set_facecolor(cm(norm(i)))
     
     plt.rcParams.update({'font.size': 16})
-    fig, axs = plt.subplots(2, 2, figsize = (10, 10), dpi = 400)
+    fig, axs = plt.subplots(2, 2, figsize = (10, 10), dpi = 400,\
+               constrained_layout = True)
     cmap = plt.get_cmap('coolwarm')
     
-    _, _, patches = axs[0,0].hist(data['cpu'], bins = num_bins, density = True, range = (0,100))
+    # CPU
+    _, _, patches = axs[0,0].hist(data['cpu'], bins = num_bins,\
+                    density = True, range = (0,100))
     apply_cmap(cmap, patches)
     axs[0,0].set_xlabel('Load [%]')
     axs[0,0].set_title('CPU')
 
-    _, _, patches = axs[0,1].hist(data['ram'], bins = num_bins, density = True, range = (0,100))
+    _, _, patches = axs[0,1].hist(data['ram'], bins = num_bins,\
+                    density = True, range = (0,100))
     apply_cmap(cmap, patches)
     axs[0,1].set_xlabel('Usage [%]')
     axs[0,1].set_title('RAM')
     
-    try: # Plot GPU data if available
-        _, _, patches = axs[1,0].hist(data['gpu'], bins = num_bins, density = True, range = (0,100))
+    # SWAP (inset)
+    axins = inset_axes(axs[0,1], width = "35%", height = "35%",\
+            loc = "upper left", borderpad = 0.5)
+    _, _, patches = axins.hist(data['swap'], bins = num_bins,\
+                    density = True, range = (0, 100))
+    axins.set_facecolor('none') # Transparent background
+    apply_cmap(cmap, patches)
+    axins.set_xticks([]), axins.set_yticks([]) # Hide ticks
+    axins.text( 0.5, -0.05, 'SWAP', ha = 'center', va = 'top',\
+                fontsize = 10, transform = axins.transAxes)
+    
+    # GPU (if available)
+    try:
+        _, _, patches = axs[1,0].hist(data['gpu'], bins = num_bins,\
+                        density = True, range = (0,100))
         apply_cmap(cmap, patches)
     except:
         axs[1,0].bar(0, 0, label="No GPU")
@@ -105,12 +127,14 @@ def plot_data(data: dict, num_bins: int = 40) -> str:
     axs[1,0].set_xlabel('Usage [%]')
     axs[1,0].set_title('GPU')
     
-    _, _, patches = axs[1,1].hist(data['temp'], bins = num_bins, density = True)
+    # Temperature
+    _, _, patches = axs[1,1].hist(data['temp'], bins = num_bins,\
+                    density = True)
     apply_cmap(cmap, patches)
     axs[1,1].set_xlabel('Temperature [°C]')
     axs[1,1].set_title('Thermal')
     
-    fig.tight_layout()
+    #fig.tight_layout()
     filepath = "./plot.png"
     plt.savefig(filepath) # Save figure
     return filepath
@@ -133,7 +157,8 @@ async def main() -> None:
     text =\
         f"{host} with {' '.join(distro)}\n" +\
         f"CPU: {avg['cpu']:.1f}%\n" +\
-        f"RAM: {avg['ram']:.1f}%\n"
+        f"RAM: {avg['ram']:.1f}%\n" +\
+        f"SWAP: {avg['swap']:.1f}%\n"
     if avg['gpu'] != "N/A":
         text += f"GPU: {avg['gpu']:.1f}%\n"
     else:
