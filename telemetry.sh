@@ -94,8 +94,7 @@ fi
 
 counter=1
 
-pattern='{print $3, $4, $5}'
-hostnamectl | grep "Operating System:" | awk "$pattern" > ./$TMP/distroName.txt
+hostnamectl | grep "Operating System:" | awk '{print $3, $4, $5}' > ./$TMP/distroName.txt
 hostnamectl | grep "Static hostname:" | awk '{print $3}' > ./$TMP/hostName.txt
 	
 nproc > ./$TMP/numCores.txt
@@ -110,11 +109,8 @@ while true; do
 	cat /proc/loadavg | awk '{print $1}' >> ./$TMP/cpuLoad.txt
 	cat /sys/class/thermal/thermal_zone${tzone}/temp >> ./$TMP/cpuTemp.txt
 	if $readgpu; then # Read NVIDIA GPU metrics
-		pattern='{print substr($9, 1, length($9) - 3)}'
-		nvidia-smi | grep W | awk "$pattern" >> ./$TMP/gpuUsed.txt
-		
-		pattern='{print substr($11, 1, length($11) - 3)}'
-		nvidia-smi | grep W | awk "$pattern" >> ./$TMP/gpuTotal.txt
+		nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits >> ./$TMP/gpuUsed.txt
+		nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits >> ./$TMP/gpuTotal.txt
 	fi
 
 	counter=$(($counter + 1))
